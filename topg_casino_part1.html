@@ -1,0 +1,278 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Top G 온라인 카지노 게임 5종 - Part 1</title>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: #eee; margin:0; padding:0; display:flex; flex-direction: column; align-items:center; min-height:100vh; }
+  header { background:#222; padding:15px 20px; width:100%; text-align:center; font-size:1.8rem; font-weight:bold; letter-spacing:2px; }
+  #balance { margin: 15px 0; font-size:1.4rem; }
+  #gameSelector { margin: 10px 0 30px 0; }
+  button { background:#ff5e00; border:none; color:#fff; padding:10px 20px; margin:0 5px; font-size:1rem; cursor:pointer; border-radius:4px; transition: background 0.3s; }
+  button:hover { background:#ff8a3c; }
+  #gameContainer { width: 90vw; max-width: 480px; background:#222; padding: 20px; border-radius: 10px; min-height: 450px; box-sizing: border-box; }
+  #message { margin-top: 15px; min-height: 40px; font-size:1.1rem; color:#ffae00; font-weight:bold; }
+  input[type=number] { width: 100px; padding: 8px; border-radius: 4px; border: none; font-size: 1rem; text-align:center; }
+  .bet-section { margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<header>Top G 온라인 카지노 게임 5종</header>
+<div id="balance">💰 잔액: <span id="balanceAmount">10000</span> 코인</div>
+<div id="gameSelector">
+  <button onclick="switchGame('crash')">Crash</button>
+  <button onclick="switchGame('mines')">Mines</button>
+  <button onclick="switchGame('plinko')">Plinko</button>
+  <button onclick="switchGame('blackjack')">Blackjack</button>
+  <button onclick="switchGame('baccarat')">Baccarat</button>
+</div>
+
+<div id="gameContainer"></div>
+<div id="message"></div>
+
+<script>
+(() => {
+  let balance = 10000;
+  const balanceElem = document.getElementById('balanceAmount');
+  const gameContainer = document.getElementById('gameContainer');
+  const messageElem = document.getElementById('message');
+
+  function updateBalance(change = 0) {
+    balance += change;
+    if (balance < 0) balance = 0;
+    balanceElem.textContent = balance;
+  }
+
+  function clearMessage() {
+    messageElem.textContent = '';
+  }
+
+  function setMessage(msg) {
+    messageElem.textContent = msg;
+  }
+
+  function createBetInput() {
+    const container = document.createElement('div');
+    container.className = 'bet-section';
+
+    const label = document.createElement('label');
+    label.textContent = '베팅 금액: ';
+    label.style.marginRight = '10px';
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '1';
+    input.value = '100';
+    input.id = 'betInput';
+
+    container.appendChild(label);
+    container.appendChild(input);
+    return container;
+  }
+
+  function renderCrash() {
+    gameContainer.innerHTML = '';
+    clearMessage();
+
+    const betSection = createBetInput();
+    gameContainer.appendChild(betSection);
+
+    const startBtn = document.createElement('button');
+    startBtn.textContent = '시작';
+    gameContainer.appendChild(startBtn);
+
+    const multiplierDisplay = document.createElement('div');
+    multiplierDisplay.style.fontSize = '2rem';
+    multiplierDisplay.style.marginTop = '30px';
+    multiplierDisplay.style.textAlign = 'center';
+    multiplierDisplay.textContent = '배수: 1.00x';
+    gameContainer.appendChild(multiplierDisplay);
+
+    let running = false;
+    let currentMultiplier = 1;
+    let crashPoint = 0;
+    let interval;
+
+    function getRandomCrashPoint() {
+      return 1 + Math.random() * 10;
+    }
+
+    function startCrash(bet) {
+      if (bet > balance) {
+        setMessage('잔액이 부족합니다.');
+        return;
+      }
+      updateBalance(-bet);
+      running = true;
+      currentMultiplier = 1;
+      crashPoint = getRandomCrashPoint();
+      multiplierDisplay.textContent = '배수: 1.00x';
+      setMessage('게임 진행 중... 클릭해서 멈춰라!');
+
+      interval = setInterval(() => {
+        if (!running) return;
+        currentMultiplier += 0.01;
+        multiplierDisplay.textContent = `배수: ${currentMultiplier.toFixed(2)}x`;
+        if (currentMultiplier >= crashPoint) {
+          clearInterval(interval);
+          running = false;
+          setMessage(`폭발! 당신은 ${bet} 코인을 잃었습니다.`);
+        }
+      }, 30);
+    }
+
+    function cashOut(bet) {
+      if (!running) return;
+      clearInterval(interval);
+      running = false;
+      const winAmount = Math.floor(bet * currentMultiplier);
+      updateBalance(winAmount);
+      setMessage(`성공! ${winAmount} 코인을 획득했습니다!`);
+    }
+
+    startBtn.onclick = () => {
+      if (running) {
+        const bet = parseInt(document.getElementById('betInput').value);
+        cashOut(bet);
+      } else {
+        const bet = parseInt(document.getElementById('betInput').value);
+        if (isNaN(bet) || bet < 1) {
+          setMessage('유효한 베팅 금액을 입력하세요.');
+          return;
+        }
+        startCrash(bet);
+      }
+    };
+  }
+
+  function renderMines() {
+    gameContainer.innerHTML = '';
+    clearMessage();
+
+    const betSection = createBetInput();
+    gameContainer.appendChild(betSection);
+
+    const startBtn = document.createElement('button');
+    startBtn.textContent = '게임 시작';
+    gameContainer.appendChild(startBtn);
+
+    const gridSize = 5;
+    const minesCount = 3;
+    let board = [];
+    let revealed = [];
+    let gameOver = false;
+    let safeClicks = 0;
+    let betAmount = 0;
+
+    const gridContainer = document.createElement('div');
+    gridContainer.style.display = 'grid';
+    gridContainer.style.gridTemplateColumns = `repeat(${gridSize}, 50px)`;
+    gridContainer.style.gridGap = '5px';
+    gridContainer.style.justifyContent = 'center';
+    gridContainer.style.marginTop = '20px';
+    gameContainer.appendChild(gridContainer);
+
+    function placeMines() {
+      board = new Array(gridSize * gridSize).fill(0);
+      revealed = new Array(gridSize * gridSize).fill(false);
+      let placed = 0;
+      while (placed < minesCount) {
+        const idx = Math.floor(Math.random() * board.length);
+        if (board[idx] === 0) {
+          board[idx] = 1;
+          placed++;
+        }
+      }
+    }
+
+    function revealCell(idx) {
+      if (gameOver || revealed[idx]) return;
+      revealed[idx] = true;
+      if (board[idx] === 1) {
+        gameOver = true;
+        updateBalance(-betAmount);
+        setMessage(`지뢰 밟음! ${betAmount} 코인 손실. 안전 클릭 ${safeClicks}회.`);
+        renderGrid(true);
+      } else {
+        safeClicks++;
+        updateBalance(betAmount * 0.1);
+        setMessage(`안전! ${safeClicks}회 클릭 성공.`);
+        renderGrid();
+      }
+    }
+
+    function renderGrid(showMines = false) {
+      gridContainer.innerHTML = '';
+      for (let i = 0; i < board.length; i++) {
+        const cell = document.createElement('div');
+        cell.style.width = '50px';
+        cell.style.height = '50px';
+        cell.style.background = revealed[i] ? (board[i] === 1 ? '#d33' : '#2d2') : '#444';
+        cell.style.borderRadius = '6px';
+        cell.style.cursor = gameOver || revealed[i] ? 'default' : 'pointer';
+        cell.style.display = 'flex';
+        cell.style.justifyContent = 'center';
+        cell.style.alignItems = 'center';
+        cell.style.fontWeight = 'bold';
+        cell.style.fontSize = '1.2rem';
+        cell.style.color = '#222';
+
+        if (revealed[i]) {
+          if (board[i] === 1) cell.textContent = '💣';
+          else cell.textContent = '✓';
+        } else {
+          if (!gameOver) {
+            cell.onclick = () => revealCell(i);
+          } else if (showMines && board[i] === 1) {
+            cell.textContent = '💣';
+            cell.style.background = '#d33';
+          }
+        }
+        gridContainer.appendChild(cell);
+      }
+    }
+
+    startBtn.onclick = () => {
+      if (gameOver) {
+        gameOver = false;
+        updateBalance(safeClicks * betAmount * 0.5);
+        safeClicks = 0;
+      }
+      const bet = parseInt(document.getElementById('betInput').value);
+      if (isNaN(bet) || bet < 1) {
+        setMessage('유효한 베팅 금액을 입력하세요.');
+        return;
+      }
+      if (bet > balance) {
+        setMessage('잔액이 부족합니다.');
+        return;
+      }
+      betAmount = bet;
+      updateBalance(-bet);
+      placeMines();
+      revealed.fill(false);
+      safeClicks = 0;
+      renderGrid();
+      setMessage('지뢰를 피해 클릭하세요!');
+    };
+
+    renderGrid();
+  }
+
+  window.switchGame = (game) => {
+    clearMessage();
+    if (game === 'crash') renderCrash();
+    else if (game === 'mines') renderMines();
+    else setMessage('준비 중인 게임입니다.');
+  };
+
+  // 첫 화면은 Crash 게임
+  switchGame('crash');
+})();
+</script>
+
+</body>
+</html>

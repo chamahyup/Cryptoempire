@@ -1,0 +1,334 @@
+
+<script>
+(() => {
+  const gameContainer = document.getElementById('gameContainer');
+  const messageElem = document.getElementById('message');
+  const balanceElem = document.getElementById('balanceAmount');
+
+  // 여기서 balance와 updateBalance 변수, 함수는 첫번째 파일에 있음.
+  // 따라서, 첫번째 파일과 합치면 중복없이 작동함.
+
+  // Plinko 게임 구현
+  function renderPlinko() {
+    gameContainer.innerHTML = '';
+    messageElem.textContent = '';
+
+    const betSection = document.createElement('div');
+    betSection.className = 'bet-section';
+    const label = document.createElement('label');
+    label.textContent = '베팅 금액: ';
+    label.style.marginRight = '10px';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '1';
+    input.value = '100';
+    input.id = 'betInput';
+    betSection.appendChild(label);
+    betSection.appendChild(input);
+    gameContainer.appendChild(betSection);
+
+    const startBtn = document.createElement('button');
+    startBtn.textContent = '드롭!';
+    gameContainer.appendChild(startBtn);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 400;
+    canvas.style.marginTop = '20px';
+    canvas.style.border = '2px solid #ff5e00';
+    canvas.style.borderRadius = '10px';
+    gameContainer.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const rows = 12;
+    const cols = 7;
+    const pegRadius = 5;
+    const ballRadius = 8;
+
+    let animationId = null;
+    let ballX = canvas.width / 2;
+    let ballY = 40;
+    let ballRow = 0;
+    let running = false;
+    let betAmount = 0;
+
+    function drawPegs() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#ff5e00';
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x = (canvas.width / (cols - 1)) * c;
+          const y = 50 + r * 25 + (r % 2 === 0 ? 0 : 12.5);
+          ctx.beginPath();
+          ctx.arc(x, y, pegRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      // 바닥 칸 표시
+      const bottomY = 50 + rows * 25;
+      for (let c = 0; c < cols; c++) {
+        const x = (canvas.width / (cols - 1)) * c;
+        ctx.fillStyle = '#ffae00';
+        ctx.fillRect(x - 15, bottomY, 30, 40);
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        const multiplier = [1, 2, 5, 10, 5, 2, 1];
+        ctx.fillText(multiplier[c] + 'x', x, bottomY + 25);
+      }
+    }
+
+    function animateBall() {
+      if (!running) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawPegs();
+
+      const y = 50 + ballRow * 25 + (ballRow % 2 === 0 ? 0 : 12.5);
+      ctx.beginPath();
+      ctx.fillStyle = '#00ffff';
+      ctx.arc(ballX, y, ballRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (ballRow >= rows) {
+        // 바닥에 도달했을 때 결과 계산
+        running = false;
+        // 위치에 따른 배수 적용
+        const segmentWidth = canvas.width / (cols - 1);
+        let colIndex = Math.round(ballX / segmentWidth);
+        if (colIndex < 0) colIndex = 0;
+        if (colIndex >= cols) colIndex = cols - 1;
+        const multipliers = [1, 2, 5, 10, 5, 2, 1];
+        const winMultiplier = multipliers[colIndex];
+        const winAmount = Math.floor(betAmount * winMultiplier);
+        updateBalance(winAmount);
+        messageElem.textContent = `축하! 배수 ${winMultiplier}배! ${winAmount} 코인 획득!`;
+        cancelAnimationFrame(animationId);
+        animationId = null;
+        return;
+      }
+
+      // 공은 아래로 떨어지면서 좌우 랜덤 이동
+      ballX += (Math.random() < 0.5 ? -1 : 1) * 12.5;
+      // 좌우 경계 제한
+      if (ballX < 0) ballX = 0;
+      if (ballX > canvas.width) ballX = canvas.width;
+
+      ballRow++;
+      animationId = requestAnimationFrame(animateBall);
+    }
+
+    startBtn.onclick = () => {
+      if (running) return;
+      const bet = parseInt(input.value);
+      if (isNaN(bet) || bet < 1) {
+        messageElem.textContent = '유효한 베팅 금액을 입력하세요.';
+        return;
+      }
+      if (bet > parseInt(balanceElem.textContent)) {
+        messageElem.textContent = '잔액이 부족합니다.';
+        return;
+      }
+      betAmount = bet;
+      updateBalance(-bet);
+      ballX = canvas.width / 2;
+      ballRow = 0;
+      running = true;
+      messageElem.textContent = '공이 떨어집니다... 잠시만 기다려주세요.';
+      animateBall();
+    };
+    drawPegs();
+  }
+
+  // Blackjack 게임 구현
+  function renderBlackjack() {
+    gameContainer.innerHTML = '';
+    messageElem.textContent = '';
+
+    const betSection = document.createElement('div');
+    betSection.className = 'bet-section';
+    const label = document.createElement('label');
+    label.textContent = '베팅 금액: ';
+    label.style.marginRight = '10px';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '1';
+    input.value = '100';
+    input.id = 'betInput';
+    betSection.appendChild(label);
+    betSection.appendChild(input);
+    gameContainer.appendChild(betSection);
+
+    const startBtn = document.createElement('button');
+    startBtn.textContent = '게임 시작';
+    gameContainer.appendChild(startBtn);
+
+    const playerArea = document.createElement('div');
+    playerArea.style.marginTop = '20px';
+    gameContainer.appendChild(playerArea);
+
+    const dealerArea = document.createElement('div');
+    dealerArea.style.marginTop = '10px';
+    gameContainer.appendChild(dealerArea);
+
+    let deck = [];
+    let playerCards = [];
+    let dealerCards = [];
+    let betAmount = 0;
+    let gameActive = false;
+
+    function createDeck() {
+      const suits = ['♠', '♥', '♦', '♣'];
+      const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+      const newDeck = [];
+      for (const suit of suits) {
+        for (const rank of ranks) {
+          newDeck.push({suit, rank});
+        }
+      }
+      return newDeck;
+    }
+
+    function shuffle(deck) {
+      for (let i = deck.length -1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i+1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+      return deck;
+    }
+
+    function cardValue(card) {
+      if (card.rank === 'A') return 11;
+      if (['J','Q','K'].includes(card.rank)) return 10;
+      return parseInt(card.rank);
+    }
+
+    function handValue(cards) {
+      let val = 0;
+      let aces = 0;
+      for (const card of cards) {
+        val += cardValue(card);
+        if (card.rank === 'A') aces++;
+      }
+      while (val > 21 && aces > 0) {
+        val -= 10;
+        aces--;
+      }
+      return val;
+    }
+
+    function renderCards(area, cards, hidden=false) {
+      area.innerHTML = '';
+      cards.forEach((card, i) => {
+        const div = document.createElement('div');
+        div.style.display = 'inline-block';
+        div.style.marginRight = '8px';
+        div.style.padding = '10px';
+        div.style.border = '2px solid #ff5e00';
+        div.style.borderRadius = '8px';
+        div.style.backgroundColor = '#333';
+        div.style.color = (card.suit === '♥' || card.suit === '♦') ? '#f00' : '#fff';
+        div.style.fontWeight = 'bold';
+        div.style.width = '50px';
+        div.style.textAlign = 'center';
+        if (hidden && i === 1) {
+          div.textContent = '?';
+          div.style.backgroundColor = '#555';
+        } else {
+          div.textContent = card.rank + card.suit;
+        }
+        area.appendChild(div);
+      });
+    }
+
+    function endGame(result) {
+      gameActive = false;
+      if (result === 'win') {
+        const winAmount = betAmount * 2;
+        updateBalance(winAmount);
+        messageElem.textContent = `이겼다! ${winAmount} 코인 획득!`;
+      } else if (result === 'lose') {
+        messageElem.textContent = `졌다! ${betAmount} 코인 손실.`;
+      } else {
+        // draw
+        updateBalance(betAmount);
+        messageElem.textContent = `무승부! 베팅금액 반환.`;
+      }
+      startBtn.textContent = '게임 시작';
+    }
+
+    function dealerPlay() {
+      while(handValue(dealerCards) < 17) {
+        dealerCards.push(deck.pop());
+      }
+    }
+
+    function checkWinner() {
+      const playerVal = handValue(playerCards);
+      const dealerVal = handValue(dealerCards);
+
+      if (playerVal > 21) return 'lose';
+      if (dealerVal > 21) return 'win';
+      if (playerVal > dealerVal) return 'win';
+      if (playerVal < dealerVal) return 'lose';
+      return 'draw';
+    }
+
+    function startGame() {
+      const bet = parseInt(input.value);
+      if (isNaN(bet) || bet < 1) {
+        messageElem.textContent = '유효한 베팅 금액을 입력하세요.';
+        return;
+      }
+      if (bet > parseInt(balanceElem.textContent)) {
+        messageElem.textContent = '잔액이 부족합니다.';
+        return;
+      }
+      betAmount = bet;
+      updateBalance(-bet);
+      deck = shuffle(createDeck());
+      playerCards = [deck.pop(), deck.pop()];
+      dealerCards = [deck.pop(), deck.pop()];
+      gameActive = true;
+      messageElem.textContent = '당신 차례입니다. 히트 또는 스탠드 하세요.';
+      renderCards(playerArea, playerCards);
+      renderCards(dealerArea, dealerCards, true);
+      startBtn.textContent = '히트';
+
+      startBtn.onclick = () => {
+        if (!gameActive) {
+          startGame();
+          return;
+        }
+
+        // 히트
+        playerCards.push(deck.pop());
+        renderCards(playerArea, playerCards);
+        const val = handValue(playerCards);
+        if (val > 21) {
+          endGame('lose');
+        } else {
+          // 두번째 클릭하면 스탠드 처리
+          startBtn.textContent = '스탠드';
+          startBtn.onclick = () => {
+            dealerPlay();
+            renderCards(dealerArea, dealerCards, false);
+            const winner = checkWinner();
+            endGame(winner);
+          };
+        }
+      };
+    }
+
+    startBtn.onclick = startGame;
+  }
+
+  window.switchGame = (game) => {
+    const messageElem = document.getElementById('message');
+    messageElem.textContent = '';
+    const gameContainer = document.getElementById('gameContainer');
+    if (game === 'plinko') renderPlinko();
+    else if (game === 'blackjack') renderBlackjack();
+    else messageElem.textContent = '준비 중인 게임입니다.';
+  };
+})();
+</script>
